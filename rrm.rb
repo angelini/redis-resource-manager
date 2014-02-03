@@ -45,8 +45,16 @@ module RRM
       instance
     end
 
-    def all
-      ids       = @conn.lrange index_key, 0, -1
+    def find(id)
+      instance = @struct.new(id)
+
+      @conn.pipelined { load_attributes(instance, @attributes) }
+      load_futures(instance, @attributes)
+
+      instance
+    end
+
+    def find_many(ids)
       instances = ids.map { |id| @struct.new(id) }
 
       @conn.pipelined do
@@ -58,17 +66,26 @@ module RRM
       instances
     end
 
-    def find(id)
-      instance = @struct.new(id)
-
-      @conn.pipelined { load_attributes(instance, @attributes) }
-      load_futures(instance, @attributes)
-
-      instance
+    def all
+      find_many @conn.lrange(index_key, 0, -1)
     end
 
-    def incr_id
-      @conn.incr counter_key
+    def where(key)
+      attr = @attributes.detect { |a| a.name == key }
+      raise "Unknown key #{key} for resource #{self}" if !key
+
+      ids    = @conn.lrange index_key, 0, -1
+      values = @conn.pipelined do
+        ids.each { |id| attr.find(id) }
+      end
+
+      count    = -1
+      filtered = ids.to_enum.select do |id|
+        count += 1
+        yield values[count]
+      end
+
+      find_many(filtered)
     end
 
     private
@@ -78,6 +95,10 @@ module RRM
 
     def index_key
       "#{@name}::_index"
+    end
+
+    def incr_id
+      @conn.incr counter_key
     end
 
     def load_attributes(instance, attributes)

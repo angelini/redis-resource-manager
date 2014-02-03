@@ -30,3 +30,6 @@ p(first_found.more)
 
 puts "\nresource.all"
 p(resource.all)
+
+puts "\nresource.where(:foo) { |val| val == 'foo'}"
+p(resource.where(:foo) { |val| val == 'foo' })
