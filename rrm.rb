@@ -23,10 +23,10 @@ module RRM
         when :string then StringAttr.new(conn, @name, attr_name)
         when :list   then ListAttr.new(conn, @name, attr_name)
         when :hash   then HashAttr.new(conn, @name, attr_name)
+        when :set    then SetAttr.new(conn, @name, attr_name)
         else raise "Unknow attribute type for definition #{definition}"
         end
       end
-
 
       @struct = Struct.new(*attribute_definitions.keys.unshift(:id))
     end
@@ -134,6 +134,16 @@ module RRM
 
     def find(id)
       @conn.hgetall key(id)
+    end
+  end
+
+  class SetAttr < Attribute
+    def create(id, value)
+      @conn.sadd key(id), value
+    end
+
+    def find(id)
+      @conn.smembers key(id)
     end
   end
 end
